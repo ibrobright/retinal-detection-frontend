@@ -92,7 +92,7 @@ export const UploadPage: React.FC = () => {
 
   const isProcessing = uploading || predicting;
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: { file: File; errors: { code: string; message: string }[] }[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: readonly { readonly file: File; readonly errors: readonly { code: string; message: string }[] }[]) => {
     rejectedFiles.forEach((file) => {
       if (file.errors[0]?.code === 'file-too-large') {
         toast.error(`${file.file.name}: File too large (max 10MB)`);

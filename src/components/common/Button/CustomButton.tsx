@@ -3,20 +3,22 @@ import { Button, ButtonProps } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { med } from '@/styles/themes/theme';
 
-interface CustomButtonProps extends ButtonProps {
-  variant?: 'primary' | 'secondary' | 'outlined' | 'text' | 'danger';
+type CustomVariant = 'primary' | 'secondary' | 'outlined' | 'text' | 'danger';
+
+interface CustomButtonProps extends Omit<ButtonProps, 'variant'> {
+  variant?: CustomVariant;
   size?: 'small' | 'medium' | 'large';
   loading?: boolean;
 }
 
-const StyledButton = styled(Button)<CustomButtonProps>(({ variant, size }) => ({
+const StyledButton = styled(Button)<{ $customVariant?: CustomVariant }>(({ $customVariant, size }) => ({
   borderRadius: `${med.radiusSm}px`,
   textTransform: 'none',
   fontWeight: 600,
   letterSpacing: '-0.01em',
   transition: 'all 0.15s ease',
   
-  ...(variant === 'primary' && {
+  ...($customVariant === 'primary' && {
     backgroundColor: med.primary,
     color: '#FFFFFF',
     '&:hover': {
@@ -24,7 +26,7 @@ const StyledButton = styled(Button)<CustomButtonProps>(({ variant, size }) => ({
     },
   }),
   
-  ...(variant === 'secondary' && {
+  ...($customVariant === 'secondary' && {
     backgroundColor: med.accent,
     color: '#FFFFFF',
     '&:hover': {
@@ -32,7 +34,7 @@ const StyledButton = styled(Button)<CustomButtonProps>(({ variant, size }) => ({
     },
   }),
   
-  ...(variant === 'outlined' && {
+  ...($customVariant === 'outlined' && {
     border: `1.5px solid ${med.border}`,
     color: med.dark,
     '&:hover': {
@@ -41,7 +43,7 @@ const StyledButton = styled(Button)<CustomButtonProps>(({ variant, size }) => ({
     },
   }),
   
-  ...(variant === 'danger' && {
+  ...($customVariant === 'danger' && {
     backgroundColor: '#D64045',
     color: '#FFFFFF',
     '&:hover': {
@@ -71,6 +73,7 @@ export const CustomButton: React.FC<CustomButtonProps> = ({
   return (
     <StyledButton
       variant={variant === 'text' ? 'text' : 'contained'}
+      $customVariant={variant}
       size={size}
       disabled={disabled || loading}
       disableElevation

@@ -5,7 +5,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import RemoveRedEyeIcon from '@mui/icons-material/RemoveRedEye';
 import { med } from '@/styles/themes/theme';
 
-const FooterContainer = styled(Box)(({ theme }) => ({
+const FooterContainer = styled('footer')(({ theme }) => ({
   background: med.dark,
   color: '#FFFFFF',
   padding: theme.spacing(7, 0, 3),
@@ -44,7 +44,7 @@ const SectionTitle = styled(Typography)({
 
 export const Footer: React.FC = () => {
   return (
-    <FooterContainer component="footer" role="contentinfo">
+    <FooterContainer role="contentinfo">
       <Container maxWidth="xl">
         <Grid container spacing={4}>
           {/* Brand */}

@@ -31,7 +31,6 @@ import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
-import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RemoveRedEyeIcon from '@mui/icons-material/RemoveRedEye';
 import { useDispatch, useSelector } from 'react-redux';
@@ -46,7 +45,7 @@ const StyledAppBar = styled(AppBar)(() => ({
   boxShadow: 'none',
   borderBottom: `1px solid ${med.border}`,
   backdropFilter: 'blur(12px)',
-}));
+})) as typeof AppBar;
 
 interface NavChipProps {
   $active?: boolean;
@@ -225,7 +224,7 @@ export const Navbar: React.FC<NavbarProps> = () => {
   /* ── Render ────── */
   return (
     <>
-      <StyledAppBar position="sticky" elevation={0} component="header">
+      <StyledAppBar position="sticky" elevation={0} component={'header' as React.ElementType}>
         <Container maxWidth="xl">
           <Toolbar disableGutters sx={{ minHeight: { xs: 56, md: 64 } }}>
             {/* Logo */}
