@@ -1,18 +1,33 @@
 export const endpoints = {
-  // Upload endpoints
-  upload: '/api/upload',
-  
+  // Auth endpoints
+  authRegister: '/api/auth/register',
+  authLogin: '/api/auth/login',
+  authMe: '/api/auth/me',
+
+  // General endpoints
+  root: '/',
+  health: '/health',
+
   // Prediction endpoints
   predict: '/api/predict',
-  predictById: (id: string) => `/api/predict/${id}`,
-  predictByImage: (imageId: string) => `/api/predict/image/${imageId}`,
-  
+
   // Results endpoints
-  history: (userId: string) => `/api/results/history/${userId}`,
-  statistics: (userId: string) => `/api/results/statistics/${userId}`,
-  resultById: (id: string) => `/api/results/${id}`,
-  
+  resultById: (predictionId: string) => `/api/results/${predictionId}`,
+  myResults: '/api/my-results',
+
+  // Upload endpoints
+  upload: '/api/upload',
+  uploadBatch: '/api/upload/batch',
+  uploadById: (imageId: string) => `/api/upload/${imageId}`,
+
   // Admin endpoints
-  adminStats: '/api/admin/statistics',
-  models: '/api/admin/models',
+  adminModelInfo: '/api/admin/model/info',
+  adminModelMetrics: '/api/admin/model/metrics',
+  adminModelUpload: '/api/admin/model/upload',
+  adminModelActivate: (modelId: string) => `/api/admin/model/activate/${modelId}`,
+  adminModelList: '/api/admin/model/list',
+  adminModelDelete: (modelId: string) => `/api/admin/model/${modelId}`,
+  adminModelThresholds: '/api/admin/model/thresholds',
+  adminStats: '/api/admin/stats',
+  adminResults: '/api/admin/results',
 } as const;

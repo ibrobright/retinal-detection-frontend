@@ -1,28 +1,60 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { predictionService } from '@/api/services/predictionService';
-import { PredictionResult, AnalysisStatus } from '@/types';
+import { resultsService } from '@/api/services/resultsService';
+import { PredictionResponse, ResultResponse, AnalysisStatus } from '@/types';
 
 interface PredictionState {
-  current: PredictionResult | null;
+  current: PredictionResponse | null;
+  savedResult: ResultResponse | null;
   loading: boolean;
   error: string | null;
   status: AnalysisStatus;
-  pollingInterval: NodeJS.Timeout | null;
+  uploadProgress: number;
 }
 
 const initialState: PredictionState = {
   current: null,
+  savedResult: null,
   loading: false,
   error: null,
   status: 'pending',
-  pollingInterval: null,
+  uploadProgress: 0,
 };
 
-export const createPrediction = createAsyncThunk(
-  'prediction/create',
-  async (imageId: string, { rejectWithValue }) => {
+/**
+ * Upload a file and run prediction in one step via POST /api/predict.
+ */
+export const runPrediction = createAsyncThunk(
+  'prediction/run',
+  async (
+    { file, generateGradcam, threshold }: { file: File; generateGradcam?: boolean; threshold?: number },
+    { dispatch, rejectWithValue }
+  ) => {
     try {
-      const result = await predictionService.pollPrediction(imageId);
+      const result = await predictionService.predict(
+        file,
+        generateGradcam ?? true,
+        threshold,
+        (percent) => {
+          dispatch(setUploadProgress(percent));
+        }
+      );
+      return result;
+    } catch (error: any) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+/**
+ * GET /api/results/{prediction_id}
+ * Load a saved result by its ID (e.g. from history page).
+ */
+export const fetchResultById = createAsyncThunk(
+  'prediction/fetchResult',
+  async (predictionId: string, { rejectWithValue }) => {
+    try {
+      const result = await resultsService.getResult(predictionId);
       return result;
     } catch (error: any) {
       return rejectWithValue(error.message);
@@ -36,36 +68,55 @@ export const predictionSlice = createSlice({
   reducers: {
     clearPrediction: (state) => {
       state.current = null;
+      state.savedResult = null;
       state.error = null;
       state.status = 'pending';
-      if (state.pollingInterval) {
-        clearInterval(state.pollingInterval);
-        state.pollingInterval = null;
-      }
+      state.uploadProgress = 0;
     },
     setStatus: (state, action: PayloadAction<AnalysisStatus>) => {
       state.status = action.payload;
     },
+    setUploadProgress: (state, action: PayloadAction<number>) => {
+      state.uploadProgress = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(createPrediction.pending, (state) => {
+      .addCase(runPrediction.pending, (state) => {
         state.loading = true;
         state.error = null;
         state.status = 'processing';
+        state.uploadProgress = 0;
       })
-      .addCase(createPrediction.fulfilled, (state, action) => {
+      .addCase(runPrediction.fulfilled, (state, action) => {
         state.loading = false;
         state.current = action.payload;
         state.status = 'completed';
+        state.uploadProgress = 100;
       })
-      .addCase(createPrediction.rejected, (state, action) => {
+      .addCase(runPrediction.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
         state.status = 'failed';
+        state.uploadProgress = 0;
+      })
+      // Fetch saved result by ID
+      .addCase(fetchResultById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.savedResult = null;
+      })
+      .addCase(fetchResultById.fulfilled, (state, action) => {
+        state.loading = false;
+        state.savedResult = action.payload;
+        state.status = 'completed';
+      })
+      .addCase(fetchResultById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
       });
   },
 });
 
-export const { clearPrediction, setStatus } = predictionSlice.actions;
+export const { clearPrediction, setStatus, setUploadProgress } = predictionSlice.actions;
 export default predictionSlice.reducer;

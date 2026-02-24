@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent, Typography, Box } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import { med } from '@/styles/themes/theme';
 
 interface StatCardProps {
   title: string;
@@ -13,27 +14,27 @@ interface StatCardProps {
   };
 }
 
-const StyledCard = styled(Card)(({ theme }) => ({
-  borderRadius: '12px',
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-  border: '1px solid #E0E0E0',
-  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+const StyledCard = styled(Card)(() => ({
+  border: `1px solid ${med.border}`,
+  borderRadius: `${med.radius}px`,
+  boxShadow: 'none',
+  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
   '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+    borderColor: med.primary,
+    boxShadow: '0 4px 16px rgba(13, 124, 102, 0.06)',
   },
 }));
 
-const IconContainer = styled(Box)<{ color?: string }>(({ color }) => ({
-  width: '48px',
-  height: '48px',
-  borderRadius: '12px',
+const IconBox = styled(Box)<{ bg?: string; fg?: string }>(({ bg, fg }) => ({
+  width: 44,
+  height: 44,
+  borderRadius: `${med.radiusSm}px`,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: color ? `${color}20` : '#E3F2FD',
-  color: color || '#1976D2',
-  marginBottom: '16px',
+  backgroundColor: bg || med.primaryLight,
+  color: fg || med.primary,
+  marginBottom: 14,
 }));
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -45,10 +46,10 @@ export const StatCard: React.FC<StatCardProps> = ({
 }) => {
   return (
     <StyledCard>
-      <CardContent sx={{ p: 3 }}>
-        <IconContainer color={iconColor}>
+      <CardContent sx={{ p: 2.5 }}>
+        <IconBox bg={iconColor ? `${iconColor}18` : undefined} fg={iconColor || undefined}>
           {icon}
-        </IconContainer>
+        </IconBox>
         
         <Typography variant="body2" color="text.secondary" gutterBottom>
           {title}
@@ -58,11 +59,11 @@ export const StatCard: React.FC<StatCardProps> = ({
           {value}
         </Typography>
         
-        {trend && (
+        {trend && trend.value !== 0 && (
           <Typography
-            variant="body2"
+            variant="caption"
             color={trend.positive ? 'success.main' : 'error.main'}
-            sx={{ mt: 1 }}
+            sx={{ mt: 0.5, display: 'block' }}
           >
             {trend.positive ? '↑' : '↓'} {Math.abs(trend.value)}% from last month
           </Typography>

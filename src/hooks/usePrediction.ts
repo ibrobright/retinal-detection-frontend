@@ -1,45 +1,58 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { predictionService } from '@/api/services/predictionService';
-import { PredictionResult } from '@/types';
+import { PredictionResponse } from '@/types';
 
 interface UsePredictionResult {
-  prediction: PredictionResult | null;
+  prediction: PredictionResponse | null;
   loading: boolean;
   error: string | null;
-  createPrediction: (imageId: string) => Promise<void>;
+  progress: number;
+  runPrediction: (file: File, generateGradcam?: boolean) => Promise<void>;
   clearPrediction: () => void;
 }
 
 export const usePrediction = (): UsePredictionResult => {
-  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+  const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
-  const createPrediction = useCallback(async (imageId: string) => {
-    setLoading(true);
-    setError(null);
+  const runPrediction = useCallback(
+    async (file: File, generateGradcam: boolean = true) => {
+      setLoading(true);
+      setError(null);
+      setProgress(0);
 
-    try {
-      const result = await predictionService.pollPrediction(imageId);
-      setPrediction(result);
-    } catch (err: any) {
-      setError(err.message || 'Prediction failed');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      try {
+        const result = await predictionService.predict(
+          file,
+          generateGradcam,
+          undefined,
+          (percent) => setProgress(percent)
+        );
+        setPrediction(result);
+      } catch (err: any) {
+        setError(err.message || 'Prediction failed');
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   const clearPrediction = useCallback(() => {
     setPrediction(null);
     setError(null);
     setLoading(false);
+    setProgress(0);
   }, []);
 
   return {
     prediction,
     loading,
     error,
-    createPrediction,
+    progress,
+    runPrediction,
     clearPrediction,
   };
 };

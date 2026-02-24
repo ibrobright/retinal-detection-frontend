@@ -8,30 +8,33 @@ import {
   Grid,
   Checkbox,
   FormControlLabel,
-  TextField,
   Alert,
   LinearProgress,
-  useTheme,
+  Slider,
+  Switch,
+  Collapse,
+  Tooltip,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ImageIcon from '@mui/icons-material/Image';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
-// ✅ Fixed: Ensure action name matches export from slice
-import { addFiles, removeFile, clearFiles, setMetadata, uploadImages } from '@/store/slices/uploadSlice';
+import { addFiles, removeFile, clearFiles, setMetadata } from '@/store/slices/uploadSlice';
+import { runPrediction } from '@/store/slices/predictionSlice';
 import { Navbar } from '@/components/common/Layout/Navbar';
 import { Footer } from '@/components/common/Layout/Footer';
+import { med } from '@/styles/themes/theme';
 import toast from 'react-hot-toast';
 
-// ✅ Styled Components
+/* ── styled pieces ─────────────────────────────────────────── */
+
 const UploadContainer = styled(Box)(({ theme }) => ({
   minHeight: 'calc(100vh - 200px)',
-  padding: theme.spacing(6, 0),
-  backgroundColor: '#F5F7FA',
+  padding: theme.spacing(5, 0),
+  backgroundColor: med.surface,
 }));
 
 interface DropzoneAreaProps {
@@ -39,29 +42,33 @@ interface DropzoneAreaProps {
 }
 
 const DropzoneArea = styled(Paper, {
-  shouldForwardProp: (prop) => prop !== '$isDragActive',
+  shouldForwardProp: (p) => p !== '$isDragActive',
 })<DropzoneAreaProps>(({ theme, $isDragActive }) => ({
-  border: `2px dashed ${$isDragActive ? '#1976D2' : '#E0E0E0'}`,
-  borderRadius: '12px',
-  padding: theme.spacing(8),
+  border: `2px dashed ${$isDragActive ? med.primary : med.border}`,
+  borderRadius: `${med.radius + 2}px`,
+  padding: theme.spacing(7),
   textAlign: 'center',
   cursor: 'pointer',
-  transition: 'all 0.2s ease',
-  backgroundColor: $isDragActive ? '#E3F2FD' : '#FFFFFF',
+  transition: 'all 0.15s ease',
+  backgroundColor: $isDragActive ? med.primaryLight : '#FFFFFF',
   '&:hover': {
-    borderColor: '#1976D2',
-    backgroundColor: '#FAFAFA',
+    borderColor: med.primary,
+    backgroundColor: med.surface,
   },
 }));
 
-const ImagePreviewCard = styled(Paper)(({ theme }) => ({
+const ImagePreviewCard = styled(Paper)(() => ({
   position: 'relative',
-  borderRadius: '8px',
+  borderRadius: `${med.radius}px`,
   overflow: 'hidden',
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+  border: `1px solid ${med.border}`,
+  boxShadow: 'none',
+  transition: 'border-color 0.15s ease',
+  '&:hover': {
+    borderColor: med.primary,
+  },
 }));
 
-// ✅ Type for file with preview
 interface PreviewFile extends File {
   preview?: string;
   id: string;
@@ -70,16 +77,22 @@ interface PreviewFile extends File {
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const theme = useTheme();
   
-  const { files, uploading, uploadProgress, metadata, errors } = useSelector(
+  const { files, uploading, metadata, errors } = useSelector(
     (state: RootState) => state.upload
+  );
+  const { loading: predicting } = useSelector(
+    (state: RootState) => state.prediction
   );
 
   const [localError, setLocalError] = useState<string | null>(null);
+  const [generateGradcam, setGenerateGradcam] = useState(true);
+  const [useCustomThreshold, setUseCustomThreshold] = useState(false);
+  const [customThreshold, setCustomThreshold] = useState<number>(0.5);
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
-    // Handle rejected files
+  const isProcessing = uploading || predicting;
+
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: { file: File; errors: { code: string; message: string }[] }[]) => {
     rejectedFiles.forEach((file) => {
       if (file.errors[0]?.code === 'file-too-large') {
         toast.error(`${file.file.name}: File too large (max 10MB)`);
@@ -88,10 +101,9 @@ export const UploadPage: React.FC = () => {
       }
     });
 
-    // Validate and add accepted files
     const validFiles = acceptedFiles.filter((file) => {
       const isValidType = ['image/jpeg', 'image/png'].includes(file.type);
-      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+      const isValidSize = file.size <= 10 * 1024 * 1024;
       
       if (!isValidType) {
         toast.error(`${file.name}: Invalid file type`);
@@ -116,7 +128,7 @@ export const UploadPage: React.FC = () => {
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],
     },
-    maxSize: 10485760, // 10MB
+    maxSize: 10485760,
     multiple: true,
   });
 
@@ -129,7 +141,11 @@ export const UploadPage: React.FC = () => {
     setLocalError(null);
   };
 
-  const handleUpload = async () => {
+  /**
+   * The main flow: POST /api/predict with the file directly.
+   * This uploads + predicts in one step.
+   */
+  const handleAnalyze = async () => {
     if (files.length === 0) {
       setLocalError('Please select at least one image');
       return;
@@ -141,26 +157,29 @@ export const UploadPage: React.FC = () => {
     }
 
     try {
+      // Use the first file for prediction
+      const file = files[0];
       const result = await dispatch(
-        uploadImages({ files, metadata })
+        runPrediction({
+          file,
+          generateGradcam,
+          threshold: useCustomThreshold ? customThreshold : undefined,
+        })
       ).unwrap();
 
-      toast.success(`Successfully uploaded ${result.length} image(s)`);
-      
-      // Navigate to prediction page with first image
-      if (result.length > 0) {
-        navigate('/prediction', { 
-          state: { imageId: result[0].image_id, filename: result[0].filename } 
-        });
-      }
-    } catch (error: any) {
-      toast.error(error.message || 'Upload failed');
-      setLocalError(error.message || 'Upload failed');
+      toast.success('Analysis complete!');
+      // Navigate to prediction page — pass the prediction result via state
+      navigate('/prediction', {
+        state: { predictionId: result.prediction_id },
+      });
+    } catch (err: unknown) {
+      const message = typeof err === 'string' ? err : 'Analysis failed';
+      toast.error(message);
+      setLocalError(message);
     }
   };
 
-  const handleMetadataChange = (field: string, value: any) => {
-    // ✅ Fixed: Use correct action name from slice
+  const handleMetadataChange = (field: string, value: boolean) => {
     dispatch(setMetadata({ [field]: value }));
   };
 
@@ -171,13 +190,14 @@ export const UploadPage: React.FC = () => {
       <UploadContainer>
         <Container maxWidth="lg">
           {/* Header */}
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h3" fontWeight={600} gutterBottom>
+          <Box sx={{ mb: 5 }}>
+            <Typography variant="overline" sx={{ color: med.primary, mb: 1, display: 'block' }}>Upload</Typography>
+            <Typography variant="h3" fontWeight={700} gutterBottom sx={{ letterSpacing: '-0.025em' }}>
               Upload Retinal Images
             </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Upload fundus images for AI-powered disease detection. 
-              Supported formats: JPEG, PNG.
+            <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 560 }}>
+              Upload fundus images for AI-powered disease detection.
+              Supported formats: JPEG, PNG (max 10 MB).
             </Typography>
           </Box>
 
@@ -188,7 +208,9 @@ export const UploadPage: React.FC = () => {
             elevation={0}
           >
             <input {...getInputProps()} />
-            <CloudUploadIcon sx={{ fontSize: 64, color: '#1976D2', mb: 2 }} />
+            <Box sx={{ width: 64, height: 64, borderRadius: `${med.radius}px`, bgcolor: med.primaryLight, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', mb: 2.5 }}>
+              <CloudUploadIcon sx={{ fontSize: 28, color: med.primary }} />
+            </Box>
             <Typography variant="h6" gutterBottom>
               {isDragActive ? 'Drop images here...' : 'Drag & drop retinal images'}
             </Typography>
@@ -224,7 +246,6 @@ export const UploadPage: React.FC = () => {
                 </Button>
               </Box>
 
-              {/* ✅ Fixed: MUI v6 Grid API - use 'size' prop instead of 'item xs' */}
               <Grid container spacing={2}>
                 {files.map((file: PreviewFile) => (
                   <Grid size={{ xs: 12, sm: 6, md: 4 }} key={file.id}>
@@ -274,33 +295,74 @@ export const UploadPage: React.FC = () => {
 
           {/* Upload Options */}
           {files.length > 0 && (
-            <Paper sx={{ mt: 4, p: 3, borderRadius: '12px' }}>
+            <Paper sx={{ mt: 4, p: 3, borderRadius: `${med.radius}px`, border: `1px solid ${med.border}` }}>
               <Typography variant="h6" gutterBottom fontWeight={600} sx={{ mb: 3 }}>
-                Upload Options
+                Analysis Options
               </Typography>
 
-              {/* ✅ Fixed: MUI v6 Grid API */}
               <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    fullWidth
-                    label="Patient ID (Optional)"
-                    variant="outlined"
-                    value={metadata.patientId || ''}
-                    onChange={(e) => handleMetadataChange('patientId', e.target.value)}
-                    sx={{ mb: 2 }}
+                <Grid size={{ xs: 12 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={generateGradcam}
+                        onChange={(e) => setGenerateGradcam(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        Generate Grad-CAM heatmaps (visual explainability for detected diseases)
+                      </Typography>
+                    }
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    fullWidth
-                    label="Notes (Optional)"
-                    variant="outlined"
-                    multiline
-                    rows={2}
-                    value={metadata.notes || ''}
-                    onChange={(e) => handleMetadataChange('notes', e.target.value)}
-                  />
+
+                {/* Custom threshold toggle */}
+                <Grid size={{ xs: 12 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Tooltip title="Override the model's default per-disease detection thresholds with a single custom value" arrow>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={useCustomThreshold}
+                            onChange={(e) => setUseCustomThreshold(e.target.checked)}
+                            color="primary"
+                            size="small"
+                          />
+                        }
+                        label={
+                          <Typography variant="body2">
+                            Use custom detection threshold
+                          </Typography>
+                        }
+                      />
+                    </Tooltip>
+                  </Box>
+
+                  <Collapse in={useCustomThreshold}>
+                    <Box sx={{ pl: 4, pr: 2, pt: 1, pb: 2 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                        A lower threshold detects more diseases (higher sensitivity) but may increase false positives.
+                        The default thresholds are optimised per disease by the model.
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Slider
+                          value={customThreshold}
+                          onChange={(_e, v) => setCustomThreshold(v as number)}
+                          min={0.1}
+                          max={0.9}
+                          step={0.05}
+                          valueLabelDisplay="auto"
+                          valueLabelFormat={(v) => `${(v * 100).toFixed(0)}%`}
+                          sx={{ flex: 1 }}
+                        />
+                        <Typography variant="body2" fontWeight={600} sx={{ minWidth: 40, textAlign: 'right' }}>
+                          {(customThreshold * 100).toFixed(0)}%
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Collapse>
                 </Grid>
                 <Grid size={{ xs: 12 }}>
                   <FormControlLabel
@@ -325,11 +387,13 @@ export const UploadPage: React.FC = () => {
           )}
 
           {/* Progress */}
-          {uploading && (
+          {isProcessing && (
             <Box sx={{ mt: 4 }}>
-              <LinearProgress variant="determinate" value={uploadProgress} />
+              <LinearProgress
+                variant="indeterminate"
+              />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-                Uploading... {uploadProgress}%
+                Analyzing image... Please wait.
               </Typography>
             </Box>
           )}
@@ -340,23 +404,19 @@ export const UploadPage: React.FC = () => {
               <Button
                 variant="outlined"
                 onClick={handleClearAll}
-                disabled={uploading}
-                sx={{ borderRadius: '8px', px: 3 }}
+                disabled={isProcessing}
+                sx={{ px: 3 }}
               >
                 Cancel
               </Button>
               <Button
                 variant="contained"
-                onClick={handleUpload}
-                disabled={uploading || files.length === 0}
+                onClick={handleAnalyze}
+                disabled={isProcessing || files.length === 0}
                 startIcon={<CloudUploadIcon />}
-                sx={{
-                  borderRadius: '8px',
-                  px: 4,
-                  background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
-                }}
+                sx={{ px: 4 }}
               >
-                {uploading ? 'Uploading...' : 'Analyze Images'}
+                {isProcessing ? 'Analyzing...' : 'Analyze Image'}
               </Button>
             </Box>
           )}

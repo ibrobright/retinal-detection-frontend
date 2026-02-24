@@ -19,7 +19,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onGetStarted }) => {
           display: 'flex',
           flexDirection: 'column',
           minHeight: '100vh',
-          backgroundColor: '#F5F7FA',
+          backgroundColor: '#FAFBFC',
         }}
       >
         {/* ✅ Pass onGetStarted to Navbar */}

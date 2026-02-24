@@ -1,58 +1,47 @@
 import apiClient from '../client';
 import { endpoints } from '../endpoints';
-import { PredictionResult } from '@/types';
+import { PredictionResponse } from '@/types';
 
 export const predictionService = {
-  createPrediction: async (
-    imageId: string,
-    generateGradCAM: boolean = true
-  ): Promise<PredictionResult> => {
-    const response = await apiClient.post(endpoints.predict, {
-      image_id: imageId,
-      generate_gradcam: generateGradCAM,
-    });
-    return response.data;
-  },
+  /**
+   * POST /api/predict — upload a retinal image and get predictions.
+   * Sends multipart/form-data with `file`, optional `threshold`,
+   * and optional `generate_gradcam`.
+   */
+  predict: async (
+    file: File,
+    generateGradcam: boolean = true,
+    threshold?: number,
+    onProgress?: (percent: number) => void
+  ): Promise<PredictionResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
 
-  getPrediction: async (predictionId: string): Promise<PredictionResult> => {
-    const response = await apiClient.get(endpoints.predictById(predictionId));
-    return response.data;
-  },
-
-  pollPrediction: async (
-    imageId: string,
-    maxAttempts: number = 30,
-    interval: number = 1000
-  ): Promise<PredictionResult> => {
-    let attempts = 0;
-
-    while (attempts < maxAttempts) {
-      try {
-        const response = await apiClient.post(endpoints.predict, {
-          image_id: imageId,
-          generate_gradcam: true,
-        });
-
-        if (response.data.status === 'completed') {
-          return response.data;
-        }
-
-        attempts++;
-        await new Promise((resolve) => setTimeout(resolve, interval));
-      } catch (error) {
-        attempts++;
-        await new Promise((resolve) => setTimeout(resolve, interval));
-      }
+    // threshold and generate_gradcam are query params (not Form fields) in the backend
+    const params: Record<string, string> = {
+      generate_gradcam: String(generateGradcam),
+    };
+    if (threshold !== undefined) {
+      params.threshold = String(threshold);
     }
 
-    throw new Error('Prediction timeout - analysis took too long');
-  },
-
-  batchPredict: async (imageIds: string[]): Promise<PredictionResult[]> => {
-    const response = await apiClient.post('/api/predict/batch', {
-      image_ids: imageIds,
-      generate_gradcam: false,
-    });
+    const response = await apiClient.post<PredictionResponse>(
+      endpoints.predict,
+      formData,
+      {
+        params,
+        // Grad-CAM generation can take longer than the default timeout
+        timeout: 120_000,
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total && onProgress) {
+            const percent = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            onProgress(percent);
+          }
+        },
+      }
+    );
     return response.data;
   },
 };

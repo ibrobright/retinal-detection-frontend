@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, ButtonProps } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import { med } from '@/styles/themes/theme';
 
 interface CustomButtonProps extends ButtonProps {
   variant?: 'primary' | 'secondary' | 'outlined' | 'text' | 'danger';
@@ -8,55 +9,54 @@ interface CustomButtonProps extends ButtonProps {
   loading?: boolean;
 }
 
-const StyledButton = styled(Button)<CustomButtonProps>(({ theme, variant, size }) => ({
-  borderRadius: '8px',
+const StyledButton = styled(Button)<CustomButtonProps>(({ variant, size }) => ({
+  borderRadius: `${med.radiusSm}px`,
   textTransform: 'none',
   fontWeight: 600,
-  transition: 'all 0.2s ease',
+  letterSpacing: '-0.01em',
+  transition: 'all 0.15s ease',
   
   ...(variant === 'primary' && {
-    background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
+    backgroundColor: med.primary,
     color: '#FFFFFF',
-    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
     '&:hover': {
-      boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-      transform: 'translateY(-1px)',
+      backgroundColor: '#0A6B58',
     },
   }),
   
   ...(variant === 'secondary' && {
-    backgroundColor: '#4CAF50',
+    backgroundColor: med.accent,
     color: '#FFFFFF',
     '&:hover': {
-      backgroundColor: '#388E3C',
+      backgroundColor: '#C06730',
     },
   }),
   
   ...(variant === 'outlined' && {
-    border: '2px solid #1976D2',
-    color: '#1976D2',
+    border: `1.5px solid ${med.border}`,
+    color: med.dark,
     '&:hover': {
-      border: '2px solid #1565C0',
-      backgroundColor: '#E3F2FD',
+      borderColor: med.primary,
+      backgroundColor: med.primaryLight,
     },
   }),
   
   ...(variant === 'danger' && {
-    backgroundColor: '#F44336',
+    backgroundColor: '#D64045',
     color: '#FFFFFF',
     '&:hover': {
-      backgroundColor: '#D32F2F',
+      backgroundColor: '#B71C1C',
     },
   }),
   
   ...(size === 'small' && {
-    padding: '6px 16px',
-    fontSize: '0.875rem',
+    padding: '6px 14px',
+    fontSize: '0.8125rem',
   }),
   
   ...(size === 'large' && {
-    padding: '14px 32px',
-    fontSize: '1.125rem',
+    padding: '13px 28px',
+    fontSize: '0.9375rem',
   }),
 }));
 
@@ -73,6 +73,7 @@ export const CustomButton: React.FC<CustomButtonProps> = ({
       variant={variant === 'text' ? 'text' : 'contained'}
       size={size}
       disabled={disabled || loading}
+      disableElevation
       {...props}
     >
       {loading ? 'Loading...' : children}

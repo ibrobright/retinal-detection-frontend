@@ -1,60 +1,34 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { resultsService } from '@/api/services/resultsService';
-import { HistoryResult, Statistics, HistoryFilters } from '@/types';
+import { MyResultsItem, MyResultsResponse } from '@/types';
 
 interface HistoryState {
-  results: HistoryResult[];
-  statistics: Statistics | null;
+  results: MyResultsItem[];
   loading: boolean;
   error: string | null;
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-  filters: HistoryFilters;
+  total: number;
+  skip: number;
+  limit: number;
 }
 
 const initialState: HistoryState = {
   results: [],
-  statistics: null,
   loading: false,
   error: null,
-  pagination: {
-    page: 1,
-    pageSize: 20,
-    total: 0,
-    totalPages: 0,
-  },
-  filters: {
-    dateFrom: null,
-    dateTo: null,
-    diseases: [],
-    riskLevels: [],
-    searchQuery: '',
-    status: [],
-  },
+  total: 0,
+  skip: 0,
+  limit: 20,
 };
 
 export const fetchHistory = createAsyncThunk(
   'history/fetch',
-  async ({ userId, page, pageSize, filters }: { userId: string; page: number; pageSize: number; filters: Partial<HistoryFilters> }, { rejectWithValue }) => {
+  async (
+    { skip, limit }: { skip: number; limit: number },
+    { rejectWithValue }
+  ) => {
     try {
-      const response = await resultsService.getHistory(userId, { page, pageSize, ...filters });
+      const response = await resultsService.getMyResults(skip, limit);
       return response;
-    } catch (error: any) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-export const fetchStatistics = createAsyncThunk(
-  'history/fetchStatistics',
-  async (userId: string, { rejectWithValue }) => {
-    try {
-      const stats = await resultsService.getStatistics(userId);
-      return stats;
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -65,21 +39,17 @@ export const historySlice = createSlice({
   name: 'history',
   initialState,
   reducers: {
-    setFilters: (state, action: PayloadAction<Partial<HistoryFilters>>) => {
-      state.filters = { ...state.filters, ...action.payload };
-      state.pagination.page = 1;
+    setSkip: (state, action: PayloadAction<number>) => {
+      state.skip = action.payload;
     },
-    setPage: (state, action: PayloadAction<number>) => {
-      state.pagination.page = action.payload;
-    },
-    setPageSize: (state, action: PayloadAction<number>) => {
-      state.pagination.pageSize = action.payload;
-      state.pagination.page = 1;
+    setLimit: (state, action: PayloadAction<number>) => {
+      state.limit = action.payload;
+      state.skip = 0;
     },
     clearHistory: (state) => {
       state.results = [];
-      state.statistics = null;
-      state.pagination.page = 1;
+      state.total = 0;
+      state.skip = 0;
     },
   },
   extraReducers: (builder) => {
@@ -88,29 +58,22 @@ export const historySlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchHistory.fulfilled, (state, action) => {
-        state.loading = false;
-        state.results = action.payload.results;
-        state.pagination.total = action.payload.total;
-        state.pagination.totalPages = Math.ceil(action.payload.total / state.pagination.pageSize);
-      })
+      .addCase(
+        fetchHistory.fulfilled,
+        (state, action: PayloadAction<MyResultsResponse>) => {
+          state.loading = false;
+          state.results = action.payload.results;
+          state.total = action.payload.total;
+          state.skip = action.payload.skip;
+          state.limit = action.payload.limit;
+        }
+      )
       .addCase(fetchHistory.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(fetchStatistics.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchStatistics.fulfilled, (state, action) => {
-        state.loading = false;
-        state.statistics = action.payload;
-      })
-      .addCase(fetchStatistics.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });
   },
 });
 
-export const { setFilters, setPage, setPageSize, clearHistory } = historySlice.actions;
+export const { setSkip, setLimit, clearHistory } = historySlice.actions;
 export default historySlice.reducer;

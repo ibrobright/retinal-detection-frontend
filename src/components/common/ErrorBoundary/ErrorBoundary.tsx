@@ -83,7 +83,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 onClick={this.handleReload}
                 sx={{
                   borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
+                  background: '#0D7C66',
                 }}
               >
                 Reload Page
