@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://favourrr-retinal-disease-detection.hf.space/api/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
