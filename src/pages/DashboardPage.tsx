@@ -461,8 +461,12 @@ export const DashboardPage: React.FC = () => {
                         {[
                           ['Version', admin.modelInfo.version],
                           ['Architecture', admin.modelInfo.architecture],
-                          ['Accuracy', `${(admin.modelInfo.accuracy * 100).toFixed(1)}%`],
-                          ['AUC-ROC', admin.modelInfo.auc_roc.toFixed(3)],
+                          ['Accuracy', admin.modelInfo.accuracy
+                            ? `${(admin.modelInfo.accuracy <= 1 ? admin.modelInfo.accuracy * 100 : admin.modelInfo.accuracy).toFixed(1)}%`
+                            : 'N/A'],
+                          ['AUC-ROC', admin.modelInfo.auc_roc
+                            ? (admin.modelInfo.auc_roc <= 1 ? admin.modelInfo.auc_roc : admin.modelInfo.auc_roc / 100).toFixed(3)
+                            : 'N/A'],
                           ['Training Date', new Date(admin.modelInfo.training_date).toLocaleDateString()],
                           ['Status', admin.modelInfo.is_active ? 'Active' : 'Inactive'],
                         ].map(([label, val]) => (
@@ -490,13 +494,15 @@ export const DashboardPage: React.FC = () => {
                         Detection Thresholds
                       </Typography>
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        {Object.entries(admin.thresholds).map(([disease, threshold]) => (
+                        {Object.entries(admin.thresholds)
+                          .filter(([, v]) => typeof v === 'number')
+                          .map(([disease, threshold]) => (
                           <Box key={disease} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="body2" fontWeight={500} sx={{ textTransform: 'capitalize' }}>
                               {disease.replace(/_/g, ' ')}
                             </Typography>
                             <Chip
-                              label={`${(threshold * 100).toFixed(0)}%`}
+                              label={`${(threshold <= 1 ? threshold * 100 : threshold).toFixed(0)}%`}
                               size="small"
                               sx={{
                                 backgroundColor: `${med.primary}14`,

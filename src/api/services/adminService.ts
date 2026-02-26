@@ -48,7 +48,12 @@ export const adminService = {
 
   /** GET /api/admin/model/thresholds — current detection thresholds */
   getThresholds: async (): Promise<Record<string, number>> => {
-    const res = await apiClient.get<Record<string, number>>(endpoints.adminModelThresholds);
-    return res.data;
+    const res = await apiClient.get<Record<string, number> | { thresholds: Record<string, number> }>(endpoints.adminModelThresholds);
+    const data = res.data;
+    // Backend may wrap thresholds in a { thresholds: {...} } envelope
+    if (data && typeof data === 'object' && 'thresholds' in data && typeof data.thresholds === 'object') {
+      return data.thresholds as Record<string, number>;
+    }
+    return data as Record<string, number>;
   },
 };
