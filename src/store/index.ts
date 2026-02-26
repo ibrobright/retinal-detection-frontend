@@ -4,6 +4,7 @@ import authReducer from './slices/authSlice';
 import uploadReducer from './slices/uploadSlice';
 import predictionReducer from './slices/predictionSlice';
 import historyReducer from './slices/historySlice';
+import adminReducer from './slices/adminSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     upload: uploadReducer,
     prediction: predictionReducer,
     history: historyReducer,
+    admin: adminReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
