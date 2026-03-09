@@ -18,14 +18,16 @@ import {
 import { styled } from '@mui/material/styles';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CropIcon from '@mui/icons-material/Crop';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
-import { addFiles, removeFile, clearFiles, setMetadata } from '@/store/slices/uploadSlice';
+import { addFiles, removeFile, replaceFile, clearFiles, setMetadata } from '@/store/slices/uploadSlice';
 import { runPrediction } from '@/store/slices/predictionSlice';
 import { Navbar } from '@/components/common/Layout/Navbar';
 import { Footer } from '@/components/common/Layout/Footer';
+import { ImageCropDialog } from '@/components/common/ImageCropDialog';
 import { med } from '@/styles/themes/theme';
 import toast from 'react-hot-toast';
 
@@ -77,7 +79,7 @@ interface PreviewFile extends File {
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  
+
   const { files, uploading, metadata, errors } = useSelector(
     (state: RootState) => state.upload
   );
@@ -89,6 +91,13 @@ export const UploadPage: React.FC = () => {
   const [generateGradcam, setGenerateGradcam] = useState(true);
   const [useCustomThreshold, setUseCustomThreshold] = useState(false);
   const [customThreshold, setCustomThreshold] = useState<number>(0.5);
+
+  // ── Crop dialog state ──
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [cropFileId, setCropFileId] = useState<string | null>(null);
+  const [cropImageSrc, setCropImageSrc] = useState<string>('');
+  const [cropFileName, setCropFileName] = useState<string>('');
+  const [cropMimeType, setCropMimeType] = useState<string>('image/jpeg');
 
   const isProcessing = uploading || predicting;
 
@@ -104,7 +113,7 @@ export const UploadPage: React.FC = () => {
     const validFiles = acceptedFiles.filter((file) => {
       const isValidType = ['image/jpeg', 'image/png'].includes(file.type);
       const isValidSize = file.size <= 10 * 1024 * 1024;
-      
+
       if (!isValidType) {
         toast.error(`${file.name}: Invalid file type`);
         return false;
@@ -139,6 +148,29 @@ export const UploadPage: React.FC = () => {
   const handleClearAll = () => {
     dispatch(clearFiles());
     setLocalError(null);
+  };
+
+  // ── Crop handlers ──
+  const handleOpenCrop = (file: PreviewFile) => {
+    setCropFileId(file.id);
+    setCropImageSrc(file.preview || '');
+    setCropFileName(file.name);
+    setCropMimeType(file.type || 'image/jpeg');
+    setCropDialogOpen(true);
+  };
+
+  const handleCropComplete = (croppedFile: File) => {
+    if (cropFileId) {
+      dispatch(replaceFile({ id: cropFileId, file: croppedFile }));
+      toast.success('Image cropped successfully');
+    }
+    setCropDialogOpen(false);
+    setCropFileId(null);
+  };
+
+  const handleCropClose = () => {
+    setCropDialogOpen(false);
+    setCropFileId(null);
   };
 
   /**
@@ -186,7 +218,7 @@ export const UploadPage: React.FC = () => {
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
-      
+
       <UploadContainer>
         <Container maxWidth="lg">
           {/* Header */}
@@ -272,20 +304,46 @@ export const UploadPage: React.FC = () => {
                           {(file.size / 1024 / 1024).toFixed(2)} MB
                         </Typography>
                       </Box>
-                      <Button
-                        size="small"
-                        color="error"
-                        onClick={() => handleRemoveFile(file.id)}
+                      {/* ── Action buttons overlay ── */}
+                      <Box
                         sx={{
                           position: 'absolute',
                           top: 8,
                           right: 8,
-                          bgcolor: 'rgba(255,255,255,0.9)',
-                          '&:hover': { bgcolor: 'white' },
+                          display: 'flex',
+                          gap: 0.5,
                         }}
                       >
-                        <DeleteIcon fontSize="small" />
-                      </Button>
+                        <Button
+                          size="small"
+                          onClick={() => handleOpenCrop(file)}
+                          sx={{
+                            minWidth: 'auto',
+                            p: '6px',
+                            bgcolor: 'rgba(255,255,255,0.9)',
+                            color: med.primary,
+                            '&:hover': {
+                              bgcolor: 'white',
+                              color: med.primary,
+                            },
+                          }}
+                        >
+                          <CropIcon fontSize="small" />
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => handleRemoveFile(file.id)}
+                          sx={{
+                            minWidth: 'auto',
+                            p: '6px',
+                            bgcolor: 'rgba(255,255,255,0.9)',
+                            '&:hover': { bgcolor: 'white' },
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </Button>
+                      </Box>
                     </ImagePreviewCard>
                   </Grid>
                 ))}
@@ -375,8 +433,8 @@ export const UploadPage: React.FC = () => {
                     }
                     label={
                       <Typography variant="body2">
-                        I confirm that these images are anonymized and I have the necessary consent 
-                        to process them for medical analysis purposes. I understand that this AI tool 
+                        I confirm that these images are anonymized and I have the necessary consent
+                        to process them for medical analysis purposes. I understand that this AI tool
                         is for screening assistance only and does not replace professional medical diagnosis.
                       </Typography>
                     }
@@ -422,6 +480,16 @@ export const UploadPage: React.FC = () => {
           )}
         </Container>
       </UploadContainer>
+
+      {/* ── Crop Dialog ── */}
+      <ImageCropDialog
+        open={cropDialogOpen}
+        imageSrc={cropImageSrc}
+        fileName={cropFileName}
+        mimeType={cropMimeType}
+        onCropComplete={handleCropComplete}
+        onClose={handleCropClose}
+      />
 
       <Footer />
     </Box>

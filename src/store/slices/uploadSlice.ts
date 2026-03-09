@@ -64,6 +64,21 @@ export const uploadSlice = createSlice({
     addError: (state, action: PayloadAction<string>) => {
       state.errors.push(action.payload);
     },
+    replaceFile: (
+      state,
+      action: PayloadAction<{ id: string; file: File }>
+    ) => {
+      const { id, file } = action.payload;
+      const index = state.files.findIndex((f) => f.id === id);
+      if (index !== -1) {
+        const old = state.files[index];
+        if (old.preview) URL.revokeObjectURL(old.preview);
+        state.files[index] = Object.assign(file, {
+          id,
+          preview: URL.createObjectURL(file),
+        });
+      }
+    },
     resetUpload: (state) => {
       state.uploading = false;
       state.uploadProgress = 0;
@@ -76,6 +91,7 @@ export const uploadSlice = createSlice({
 export const {
   addFiles,
   removeFile,
+  replaceFile,
   clearFiles,
   setMetadata,
   setUploadProgress,
